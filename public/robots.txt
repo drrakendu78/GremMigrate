@@ -1,2 +1,4 @@
-User-Agent: *
-Disallow:
+User-agent: *
+Allow: /
+
+Sitemap: https://drrakendu78.github.io/GremMigrate/sitemap.xml
