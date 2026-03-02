@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="public/og-image.png" alt="GremMigrate" width="420" />
+  <img src="public/logo.png" alt="GremMigrate" width="420" />
 </p>
 
 <p align="center">
