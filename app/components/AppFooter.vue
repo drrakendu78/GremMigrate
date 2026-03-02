@@ -6,7 +6,7 @@ const { t } = useI18n()
 
 <template>
   <footer class="w-full max-w-2xl mx-auto mt-12 mb-6 px-4">
-    <div class="border-t border-zinc-800/50 pt-6">
+    <div class="border-t border-white/[0.06] pt-6">
       <div class="flex flex-col sm:flex-row items-center justify-between gap-4">
         <!-- Left: branding -->
         <div class="flex items-center gap-2 text-zinc-500 text-xs">
@@ -31,7 +31,7 @@ const { t } = useI18n()
         <!-- Right: credit -->
         <div class="text-zinc-600 text-xs">
           {{ t('footerMadeBy') }}
-          <a href="https://github.com/Drrakendu78" target="_blank" rel="noopener" class="text-zinc-400 hover:text-emerald-400 transition-colors font-medium">
+          <a href="https://github.com/Drrakendu78" target="_blank" rel="noopener" class="text-zinc-400 hover:text-blue-400 transition-colors font-medium">
             Drrakendu78
           </a>
         </div>

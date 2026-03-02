@@ -1,18 +1,15 @@
 <template>
   <div class="min-h-screen flex flex-col items-center p-4 sm:p-8 relative overflow-hidden">
-    <!-- Background effects -->
+    <!-- Background -->
     <div class="fixed inset-0 -z-10">
-      <!-- Base gradient -->
-      <div class="absolute inset-0 bg-gradient-to-b from-zinc-950 via-zinc-950 to-zinc-900" />
-      <!-- Blue glow top -->
-      <div class="absolute -top-40 left-1/2 -translate-x-1/2 w-[600px] h-[400px] bg-blue-500/[0.07] rounded-full blur-[120px]" />
-      <!-- Subtle purple glow bottom-right -->
-      <div class="absolute -bottom-32 -right-32 w-[400px] h-[400px] bg-purple-500/[0.04] rounded-full blur-[100px]" />
-      <!-- Grid pattern -->
-      <div class="absolute inset-0 bg-grid opacity-[0.03]" />
+      <div class="absolute inset-0 bg-[#0a0a0f]" />
+      <!-- Subtle blue radial behind content -->
+      <div class="absolute top-1/4 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[800px] h-[600px] rounded-full blur-[160px]" style="background: radial-gradient(ellipse, rgba(59,130,246,0.06) 0%, transparent 70%)" />
+      <!-- Grid -->
+      <div class="absolute inset-0 bg-grid opacity-[0.035]" />
     </div>
 
-    <!-- Language switcher top-right -->
+    <!-- Language switcher -->
     <div class="fixed top-4 right-4 sm:top-6 sm:right-6 z-50">
       <LangSwitcher />
     </div>
