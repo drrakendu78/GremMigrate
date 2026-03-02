@@ -17,8 +17,10 @@
       <LangSwitcher />
     </div>
 
-    <div class="flex-1 flex items-center justify-center w-full">
-      <NuxtPage />
+    <div class="flex-1 flex items-center justify-center w-full pointer-events-none">
+      <div class="pointer-events-auto">
+        <NuxtPage />
+      </div>
     </div>
 
     <AppFooter />
