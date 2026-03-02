@@ -10,7 +10,7 @@ export default defineNuxtConfig({
       htmlAttrs: { lang: 'en' },
       title: 'GremMigrate — Joystick Gremlin Profile Converter',
       link: [
-        { rel: 'icon', type: 'image/x-icon', href: '/favicon.ico' },
+        { rel: 'icon', type: 'image/x-icon', href: '/GremMigrate/favicon.ico' },
       ],
       meta: [
         { name: 'description', content: 'Convert Joystick Gremlin R13 profiles to R14 format. Free, fast, fully client-side.' },
@@ -19,7 +19,7 @@ export default defineNuxtConfig({
         { property: 'og:title', content: 'GremMigrate — Joystick Gremlin Profile Converter' },
         { property: 'og:description', content: 'Convert Joystick Gremlin R13 profiles to R14 format. Free, fast, fully client-side.' },
         { property: 'og:type', content: 'website' },
-        { property: 'og:image', content: '/og-image.png' },
+        { property: 'og:image', content: '/GremMigrate/og-image.png' },
         { name: 'twitter:card', content: 'summary_large_image' },
       ],
     },
