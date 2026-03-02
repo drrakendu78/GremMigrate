@@ -15,7 +15,7 @@ useHead({ title: 'Privacy Policy — GremMigrate' })
       {{ t('privacyBack') }}
     </NuxtLink>
 
-    <div class="card-glass rounded-2xl p-8 sm:p-10 shadow-2xl shadow-black/20">
+    <div class="rounded-2xl p-8 sm:p-10 border border-white/[0.06] bg-white/[0.02] backdrop-blur-sm">
       <h1 class="text-2xl font-bold text-white mb-2">{{ t('privacyTitle') }}</h1>
       <p class="text-zinc-500 text-sm mb-8">{{ t('privacyUpdated') }}</p>
 
@@ -49,7 +49,7 @@ useHead({ title: 'Privacy Policy — GremMigrate' })
           <h2 class="text-lg font-semibold text-zinc-200 mb-2">{{ t('privacyContactTitle') }}</h2>
           <p>
             {{ t('privacyContact') }}
-            <a href="https://github.com/Drrakendu78" target="_blank" rel="noopener" class="text-emerald-400 hover:text-emerald-300 transition-colors">@Drrakendu78</a>
+            <a href="https://github.com/Drrakendu78" target="_blank" rel="noopener" class="text-blue-400 hover:text-blue-300 transition-colors">@Drrakendu78</a>
           </p>
         </section>
       </div>
