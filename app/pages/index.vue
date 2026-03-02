@@ -46,14 +46,14 @@ const fileInput = ref<HTMLInputElement | null>(null)
     </div>
 
     <!-- Card -->
-    <div class="card-glass rounded-2xl p-6 sm:p-8 shadow-2xl shadow-black/20">
+    <div class="rounded-2xl p-6 sm:p-8 backdrop-blur-xl border border-blue-500/15" style="background: rgba(9,9,11,0.95); box-shadow: 0 0 25px 3px rgba(59,130,246,0.08), 0 0 60px 10px rgba(59,130,246,0.04)">
       <Transition name="fade" mode="out-in">
         <!-- Upload state -->
         <div v-if="status === 'idle'" key="idle">
           <div
-            class="drop-zone-border rounded-xl p-6 sm:p-10 text-center cursor-pointer transition-all duration-200"
+            class="drop-zone-border rounded-xl p-6 sm:p-10 text-center cursor-pointer transition-all duration-300 hover:border-blue-500/30 hover:bg-blue-500/[0.02]"
             :class="[
-              isDragging ? 'dragging bg-emerald-500/5' : 'hover:bg-zinc-800/20',
+              isDragging ? 'dragging !border-blue-500/40 !bg-blue-500/[0.03]' : '',
             ]"
             @dragover.prevent="isDragging = true"
             @dragleave="isDragging = false"
@@ -64,7 +64,7 @@ const fileInput = ref<HTMLInputElement | null>(null)
               <svg v-if="isDragging" class="w-12 h-12 mx-auto text-emerald-400 animate-bounce" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M19 14l-7 7m0 0l-7-7m7 7V3" />
               </svg>
-              <svg v-else class="w-12 h-12 mx-auto text-zinc-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <svg v-else class="w-12 h-12 mx-auto text-zinc-500 animate-bounce" style="animation-duration: 3s" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
               </svg>
             </div>

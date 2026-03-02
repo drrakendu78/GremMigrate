@@ -37,7 +37,10 @@ body {
 /* Animated border gradient for drop zone */
 .drop-zone-border {
   position: relative;
-  background: transparent;
+  background: rgba(24, 24, 27, 0.4);
+  border: 1.5px dashed rgba(113, 113, 122, 0.5);
+  box-shadow: 0 0 15px 2px rgba(113, 113, 122, 0.06);
+  transition: all 0.3s ease;
 }
 .drop-zone-border::before {
   content: '';
@@ -45,31 +48,21 @@ body {
   inset: 0;
   border-radius: 0.75rem;
   padding: 2px;
-  background: linear-gradient(135deg, rgba(113, 113, 122, 0.3), rgba(63, 63, 70, 0.1), rgba(113, 113, 122, 0.3));
+  background: linear-gradient(135deg, rgba(113, 113, 122, 0.4), rgba(82, 82, 91, 0.2), rgba(113, 113, 122, 0.4));
   mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
   mask-composite: exclude;
   -webkit-mask-composite: xor;
   pointer-events: none;
   transition: all 0.3s ease;
 }
-.drop-zone-border:hover::before {
-  background: linear-gradient(135deg, rgba(16, 185, 129, 0.4), rgba(52, 211, 153, 0.1), rgba(16, 185, 129, 0.4));
-}
-.drop-zone-border:hover {
-  box-shadow: 0 0 30px 5px rgba(16, 185, 129, 0.25), 0 0 60px 15px rgba(16, 185, 129, 0.15), 0 0 100px 30px rgba(16, 185, 129, 0.08);
-}
-.drop-zone-border.dragging::before {
-  background: linear-gradient(135deg, rgba(16, 185, 129, 0.6), rgba(52, 211, 153, 0.3), rgba(16, 185, 129, 0.6));
-}
-.drop-zone-border.dragging {
-  box-shadow: 0 0 30px 8px rgba(16, 185, 129, 0.35), 0 0 70px 20px rgba(16, 185, 129, 0.2), 0 0 120px 40px rgba(16, 185, 129, 0.1);
-}
+/* Hover and dragging states handled via Tailwind classes in index.vue */
 
 /* Card glass effect */
 .card-glass {
   background: rgba(24, 24, 27, 0.8);
   backdrop-filter: blur(12px);
-  border: 1px solid rgba(63, 63, 70, 0.5);
+  border: 1px solid rgba(16, 185, 129, 0.15);
+  box-shadow: 0 0 25px 3px rgba(16, 185, 129, 0.08), 0 0 60px 10px rgba(16, 185, 129, 0.04);
 }
 
 /* Stat card hover */
@@ -88,6 +81,15 @@ body {
 }
 .pulse-glow {
   animation: pulse-glow 2s ease-in-out infinite;
+}
+
+/* Upload icon floating animation */
+@keyframes upload-float {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-6px); }
+}
+.upload-icon {
+  animation: upload-float 3s ease-in-out infinite;
 }
 
 /* Version badge */
