@@ -27,6 +27,7 @@ jobs:
 
       - run: npm ci
       - run: npm run generate
+      - run: cp .output/public/index.html .output/public/404.html
 
       - uses: actions/upload-pages-artifact@v3
         with:
