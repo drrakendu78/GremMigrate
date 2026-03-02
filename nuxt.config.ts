@@ -37,7 +37,7 @@ export default defineNuxtConfig({
         { name: 'twitter:description', content: 'Convert R13 profiles to R14 format. Free, open-source, client-side.' },
         { name: 'twitter:image', content: 'https://drrakendu78.github.io/GremMigrate/og-image.png' },
         // Security
-        { 'http-equiv': 'Content-Security-Policy', content: "default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data: https://flagcdn.com; font-src 'self'; connect-src 'none'; frame-ancestors 'none'" },
+        { 'http-equiv': 'Content-Security-Policy', content: "default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data: https://flagcdn.com; font-src 'self'; connect-src 'self'; frame-ancestors 'none'" },
         { 'http-equiv': 'X-Content-Type-Options', content: 'nosniff' },
       ],
       script: [
