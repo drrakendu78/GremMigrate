@@ -17,8 +17,15 @@ function mapAxisButtonDirection(dir: string): string {
   return map[dir] || dir
 }
 
-function stripBraces(guid: string): string {
-  return guid.replace(/^\{/, '').replace(/\}$/, '')
+function normalizeDeviceId(guid: string): string {
+  // R14 expects device GUIDs brace-stripped AND lower-cased:
+  // "{7D12D5C0-...}" -> "7d12d5c0-...". R13 stores them brace-wrapped and
+  // upper-case; leaving the original case makes R14 fail to match the device,
+  // which silently unbinds every input on it.
+  return guid
+    .replace(/^\{/, '')
+    .replace(/\}$/, '')
+    .toLowerCase()
 }
 
 interface LibraryEntry {
@@ -43,6 +50,11 @@ interface InputEntry {
   actionConfigs: ActionConfig[]
 }
 
+interface ChildAction {
+  id: string
+  isCurve: boolean
+}
+
 export function generateR14(profile: R13Profile): ConversionResult {
   const warnings: string[] = []
   const libraryEntries: LibraryEntry[] = []
@@ -54,7 +66,7 @@ export function generateR14(profile: R13Profile): ConversionResult {
   // Collect modes and devices
   for (const device of profile.devices) {
     if (device.type !== 'keyboard') {
-      deviceSet.set(stripBraces(device.deviceGuid), device.name)
+      deviceSet.set(normalizeDeviceId(device.deviceGuid), device.name)
     }
     for (const mode of device.modes) {
       if (!modes.has(mode.name)) {
@@ -90,7 +102,7 @@ export function generateR14(profile: R13Profile): ConversionResult {
   const deviceSummaries: DeviceSummary[] = []
   for (const device of profile.devices) {
     if (device.type === 'keyboard') continue
-    const guid = stripBraces(device.deviceGuid)
+    const guid = normalizeDeviceId(device.deviceGuid)
     const modeSummaries = device.modes
       .map((mode) => {
         const modeInputs = inputs.filter((i) => i.deviceGuid === guid && i.mode === mode.name)
@@ -140,6 +152,16 @@ ${childIdsXml}
   return rootId
 }
 
+// R14 evaluates a root's <actions> children top-down, so a response-curve must
+// precede the map-to-vjoy/map-to-mouse that reads the shaped axis — otherwise
+// the curve silently no-ops. R13 commonly stored the curve AFTER the remap;
+// reorder curves to the front (stable within each group).
+function orderResponseCurvesFirst(children: ChildAction[]): string[] {
+  const curves = children.filter((c) => c.isCurve).map((c) => c.id)
+  const rest = children.filter((c) => !c.isCurve).map((c) => c.id)
+  return [...curves, ...rest]
+}
+
 function convertInput(
   input: R13Input,
   device: R13Device,
@@ -151,26 +173,26 @@ function convertInput(
   let skipped = 0
 
   // Separate containers: regular ones vs virtual-button ones
-  const regularChildIds: string[] = []
+  const regularChildren: ChildAction[] = []
 
   for (const container of input.containers) {
     if (container.virtualButton) {
       // Each virtual-button container becomes its own action-configuration
-      const vbChildIds: string[] = []
+      const vbChildren: ChildAction[] = []
       for (const actionSet of container.actionSets) {
         for (const action of actionSet.actions) {
           const result = convertAction(action, input, device, modeName, warnings)
           if (result) {
             entries.push({ xml: result.xml })
-            vbChildIds.push(result.id)
+            vbChildren.push({ id: result.id, isCurve: action.type === 'response-curve' })
           } else {
             skipped++
           }
         }
       }
 
-      if (vbChildIds.length > 0) {
-        const rootId = createRootAction(entries, vbChildIds)
+      if (vbChildren.length > 0) {
+        const rootId = createRootAction(entries, orderResponseCurvesFirst(vbChildren))
         actionConfigs.push({
           rootActionId: rootId,
           behavior: 'button',
@@ -188,7 +210,7 @@ function convertInput(
           const result = convertAction(action, input, device, modeName, warnings)
           if (result) {
             entries.push({ xml: result.xml })
-            regularChildIds.push(result.id)
+            regularChildren.push({ id: result.id, isCurve: action.type === 'response-curve' })
           } else {
             skipped++
           }
@@ -198,8 +220,8 @@ function convertInput(
   }
 
   // Create action-configuration for regular (non-virtual-button) actions
-  if (regularChildIds.length > 0) {
-    const rootId = createRootAction(entries, regularChildIds)
+  if (regularChildren.length > 0) {
+    const rootId = createRootAction(entries, orderResponseCurvesFirst(regularChildren))
     actionConfigs.push({
       rootActionId: rootId,
       behavior: input.type,
@@ -213,7 +235,7 @@ function convertInput(
   return {
     libraryEntries: entries,
     inputEntry: {
-      deviceGuid: stripBraces(device.deviceGuid),
+      deviceGuid: normalizeDeviceId(device.deviceGuid),
       inputType: input.type,
       inputId: input.id,
       mode: modeName,
