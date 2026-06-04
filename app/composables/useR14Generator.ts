@@ -152,6 +152,91 @@ ${childIdsXml}
   return rootId
 }
 
+// Tempo: tap fires the short bucket, hold (past `threshold` seconds) fires the
+// long bucket. Children of each bucket are already in the library; this pushes
+// the tempo wrapper that references them and returns its id.
+function buildTempoAction(
+  entries: LibraryEntry[],
+  shortIds: string[],
+  longIds: string[],
+  threshold: number,
+  activateOn: string
+): string {
+  const id = uuid()
+  const shortXml = shortIds.map((i) => `                <action-id>${i}</action-id>`).join('\n')
+  const longXml = longIds.map((i) => `                <action-id>${i}</action-id>`).join('\n')
+  entries.push({
+    xml: `        <action id="${id}" type="tempo">
+            <short-actions>
+${shortXml}
+            </short-actions>
+            <long-actions>
+${longXml}
+            </long-actions>
+            <property type="float">
+                <name>threshold</name>
+                <value>${threshold}</value>
+            </property>
+            <property type="string">
+                <name>activate-on</name>
+                <value>${esc(activateOn)}</value>
+            </property>
+            <property type="string">
+                <name>action-label</name>
+                <value>Tempo</value>
+            </property>
+            <property type="activation-mode">
+                <name>activation-mode</name>
+                <value>disallowed</value>
+            </property>
+        </action>`,
+  })
+  return id
+}
+
+// Double-tap: a single tap fires the single bucket, a second tap within
+// `threshold` seconds fires the double bucket. Note the R14 element is
+// <double-tap> (hyphen) and its buckets are <single-actions>/<double-actions>,
+// unlike tempo's <short-actions>/<long-actions>.
+function buildDoubleTapAction(
+  entries: LibraryEntry[],
+  singleIds: string[],
+  doubleIds: string[],
+  threshold: number,
+  activateOn: string
+): string {
+  const id = uuid()
+  const singleXml = singleIds.map((i) => `                <action-id>${i}</action-id>`).join('\n')
+  const doubleXml = doubleIds.map((i) => `                <action-id>${i}</action-id>`).join('\n')
+  entries.push({
+    xml: `        <action id="${id}" type="double-tap">
+            <single-actions>
+${singleXml}
+            </single-actions>
+            <double-actions>
+${doubleXml}
+            </double-actions>
+            <property type="float">
+                <name>threshold</name>
+                <value>${threshold}</value>
+            </property>
+            <property type="string">
+                <name>activate-on</name>
+                <value>${esc(activateOn)}</value>
+            </property>
+            <property type="string">
+                <name>action-label</name>
+                <value>Double Tap</value>
+            </property>
+            <property type="activation-mode">
+                <name>activation-mode</name>
+                <value>disallowed</value>
+            </property>
+        </action>`,
+  })
+  return id
+}
+
 // R14 evaluates a root's <actions> children top-down, so a response-curve must
 // precede the map-to-vjoy/map-to-mouse that reads the shaped axis — otherwise
 // the curve silently no-ops. R13 commonly stored the curve AFTER the remap;
@@ -160,6 +245,31 @@ function orderResponseCurvesFirst(children: ChildAction[]): string[] {
   const curves = children.filter((c) => c.isCurve).map((c) => c.id)
   const rest = children.filter((c) => !c.isCurve).map((c) => c.id)
   return [...curves, ...rest]
+}
+
+// Convert every action in one R13 action-set to R14 library entries (appended
+// to `entries` in order) and return their ids tagged with whether each is a
+// response-curve, so callers can keep curves first.
+function convertActions(
+  actions: R13Action[],
+  input: R13Input,
+  device: R13Device,
+  modeName: string,
+  warnings: string[],
+  entries: LibraryEntry[]
+): { children: ChildAction[]; skipped: number } {
+  const children: ChildAction[] = []
+  let skipped = 0
+  for (const action of actions) {
+    const result = convertAction(action, input, device, modeName, warnings)
+    if (result) {
+      entries.push({ xml: result.xml })
+      children.push({ id: result.id, isCurve: action.type === 'response-curve' })
+    } else {
+      skipped++
+    }
+  }
+  return { children, skipped }
 }
 
 function convertInput(
@@ -180,15 +290,9 @@ function convertInput(
       // Each virtual-button container becomes its own action-configuration
       const vbChildren: ChildAction[] = []
       for (const actionSet of container.actionSets) {
-        for (const action of actionSet.actions) {
-          const result = convertAction(action, input, device, modeName, warnings)
-          if (result) {
-            entries.push({ xml: result.xml })
-            vbChildren.push({ id: result.id, isCurve: action.type === 'response-curve' })
-          } else {
-            skipped++
-          }
-        }
+        const r = convertActions(actionSet.actions, input, device, modeName, warnings, entries)
+        vbChildren.push(...r.children)
+        skipped += r.skipped
       }
 
       if (vbChildren.length > 0) {
@@ -203,18 +307,44 @@ function convertInput(
           },
         })
       }
+    } else if (container.type === 'tempo' || container.type === 'double_tap') {
+      // Nested container: action-set[0] is the short/single bucket, [1] the
+      // long/double bucket. Leaf actions are emitted first, then the
+      // tempo/double-tap wrapper that references them, then (later) the root
+      // referencing the wrapper — children-before-referrer order is preserved.
+      const first = convertActions(
+        container.actionSets[0]?.actions ?? [],
+        input,
+        device,
+        modeName,
+        warnings,
+        entries
+      )
+      const second = convertActions(
+        container.actionSets[1]?.actions ?? [],
+        input,
+        device,
+        modeName,
+        warnings,
+        entries
+      )
+      skipped += first.skipped + second.skipped
+      const firstIds = orderResponseCurvesFirst(first.children)
+      const secondIds = orderResponseCurvesFirst(second.children)
+
+      if (firstIds.length > 0 || secondIds.length > 0) {
+        const wrapperId =
+          container.type === 'tempo'
+            ? buildTempoAction(entries, firstIds, secondIds, container.delay ?? 0.5, container.activateOn ?? 'press')
+            : buildDoubleTapAction(entries, firstIds, secondIds, container.delay ?? 0.5, container.activateOn ?? 'exclusive')
+        regularChildren.push({ id: wrapperId, isCurve: false })
+      }
     } else {
-      // Regular container — collect actions for a single action-configuration
+      // Basic container — collect actions for a single action-configuration
       for (const actionSet of container.actionSets) {
-        for (const action of actionSet.actions) {
-          const result = convertAction(action, input, device, modeName, warnings)
-          if (result) {
-            entries.push({ xml: result.xml })
-            regularChildren.push({ id: result.id, isCurve: action.type === 'response-curve' })
-          } else {
-            skipped++
-          }
-        }
+        const r = convertActions(actionSet.actions, input, device, modeName, warnings, entries)
+        regularChildren.push(...r.children)
+        skipped += r.skipped
       }
     }
   }

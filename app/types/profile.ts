@@ -33,7 +33,7 @@ export interface R13Input {
 }
 
 export interface R13Container {
-  type: 'basic' | 'tempo'
+  type: 'basic' | 'tempo' | 'double_tap'
   activateOn?: string
   delay?: number
   actionSets: R13ActionSet[]

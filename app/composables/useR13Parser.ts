@@ -85,7 +85,7 @@ function parseContainers(inputEl: Element): R13Container[] {
       }
 
       const container: R13Container = {
-        type: (containerEl.getAttribute('type') || 'basic') as 'basic' | 'tempo',
+        type: (containerEl.getAttribute('type') || 'basic') as 'basic' | 'tempo' | 'double_tap',
         actionSets,
       }
 
