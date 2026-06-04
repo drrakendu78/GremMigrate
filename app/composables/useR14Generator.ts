@@ -434,6 +434,28 @@ function convertAction(
     case 'map-to-mouse':
       return { id, xml: buildMapToMouseAction(id, action) }
 
+    case 'switch-mode':
+      return { id, xml: buildChangeModeAction(id, 'Switch', [action.modeName]) }
+
+    case 'previous-mode':
+      // "Previous" swaps the top two modes on the stack and takes NO target-mode.
+      return { id, xml: buildChangeModeAction(id, 'Previous', []) }
+
+    case 'map-to-keyboard':
+      return { id, xml: buildMapToKeyboardAction(id, action.keys) }
+
+    case 'play-sound':
+      return { id, xml: buildPlaySoundAction(id, action.file, action.volume) }
+
+    case 'noop': {
+      // R14 removed the noop plugin; its closest match is a description action —
+      // a visible placeholder with no runtime effect. Carry the input's R13
+      // description (often the author's note for why the slot is deliberate).
+      const note = "Incompatible action 'noop' converted to description"
+      const text = input.description ? `${input.description} - ${note}` : note
+      return { id, xml: buildDescriptionAction(id, text) }
+    }
+
     case 'text-to-speech':
       warnings.push(
         `TTS "${action.text}" on ${loc} — Text-to-Speech has been removed in R14 with no equivalent yet.`
@@ -594,6 +616,44 @@ function buildMacroAction(
       lines.push(`                    <value>${ma.duration}</value>`)
       lines.push('                </property>')
       lines.push('            </macro-action>')
+    } else if (ma.type === 'vjoy') {
+      // Property order matches JG's VJoyAction.to_xml: vjoy-id, input-type,
+      // input-id, value, then axis-mode for axis. value typing depends on
+      // input-type (bool button / float axis / hat-direction hat).
+      lines.push('            <macro-action type="vjoy">')
+      lines.push('                <property type="int">')
+      lines.push('                    <name>vjoy-id</name>')
+      lines.push(`                    <value>${ma.vjoyId}</value>`)
+      lines.push('                </property>')
+      lines.push('                <property type="input_type">')
+      lines.push('                    <name>input-type</name>')
+      lines.push(`                    <value>${ma.inputType}</value>`)
+      lines.push('                </property>')
+      lines.push('                <property type="int">')
+      lines.push('                    <name>input-id</name>')
+      lines.push(`                    <value>${ma.inputId}</value>`)
+      lines.push('                </property>')
+      if (ma.inputType === 'axis') {
+        lines.push('                <property type="float">')
+        lines.push('                    <name>value</name>')
+        lines.push(`                    <value>${ma.value || '0.0'}</value>`)
+        lines.push('                </property>')
+        lines.push('                <property type="axis_mode">')
+        lines.push('                    <name>axis-mode</name>')
+        lines.push('                    <value>Absolute</value>')
+        lines.push('                </property>')
+      } else if (ma.inputType === 'hat') {
+        lines.push('                <property type="hat_direction">')
+        lines.push('                    <name>value</name>')
+        lines.push(`                    <value>${ma.value || '(0,0)'}</value>`)
+        lines.push('                </property>')
+      } else {
+        lines.push('                <property type="bool">')
+        lines.push('                    <name>value</name>')
+        lines.push(`                    <value>${ma.value === 'True' ? 'True' : 'False'}</value>`)
+        lines.push('                </property>')
+      }
+      lines.push('            </macro-action>')
     }
   }
 
@@ -704,6 +764,78 @@ function buildMapToMouseAction(
   lines.push('            <property type="activation-mode">')
   lines.push('                <name>activation-mode</name>')
   lines.push('                <value>both</value>')
+  lines.push('            </property>')
+  lines.push('        </action>')
+  return lines.join('\n')
+}
+
+function buildMapToKeyboardAction(
+  id: string,
+  keys: { scanCode: number; extended: boolean }[]
+): string {
+  const lines: string[] = []
+  lines.push(`        <action id="${id}" type="map-to-keyboard">`)
+  for (const key of keys) {
+    lines.push('            <input>')
+    lines.push('                <property type="int">')
+    lines.push('                    <name>scan-code</name>')
+    lines.push(`                    <value>${key.scanCode}</value>`)
+    lines.push('                </property>')
+    lines.push('                <property type="bool">')
+    lines.push('                    <name>is-extended</name>')
+    lines.push(`                    <value>${key.extended ? 'True' : 'False'}</value>`)
+    lines.push('                </property>')
+    lines.push('            </input>')
+  }
+  lines.push('            <property type="string">')
+  lines.push('                <name>action-label</name>')
+  lines.push('                <value>Map to Keyboard</value>')
+  lines.push('            </property>')
+  lines.push('            <property type="activation-mode">')
+  lines.push('                <name>activation-mode</name>')
+  lines.push('                <value>both</value>')
+  lines.push('            </property>')
+  lines.push('        </action>')
+  return lines.join('\n')
+}
+
+function buildPlaySoundAction(id: string, file: string, volume: number): string {
+  const lines: string[] = []
+  lines.push(`        <action id="${id}" type="play-sound">`)
+  lines.push('            <property type="string">')
+  lines.push('                <name>filename</name>')
+  lines.push(`                <value>${esc(file)}</value>`)
+  lines.push('            </property>')
+  lines.push('            <property type="int">')
+  lines.push('                <name>volume</name>')
+  lines.push(`                <value>${volume}</value>`)
+  lines.push('            </property>')
+  lines.push('            <property type="string">')
+  lines.push('                <name>action-label</name>')
+  lines.push('                <value>Play Sound</value>')
+  lines.push('            </property>')
+  lines.push('            <property type="activation-mode">')
+  lines.push('                <name>activation-mode</name>')
+  lines.push('                <value>both</value>')
+  lines.push('            </property>')
+  lines.push('        </action>')
+  return lines.join('\n')
+}
+
+function buildDescriptionAction(id: string, text: string): string {
+  const lines: string[] = []
+  lines.push(`        <action id="${id}" type="description">`)
+  lines.push('            <property type="string">')
+  lines.push('                <name>description</name>')
+  lines.push(`                <value>${esc(text)}</value>`)
+  lines.push('            </property>')
+  lines.push('            <property type="string">')
+  lines.push('                <name>action-label</name>')
+  lines.push('                <value>Description</value>')
+  lines.push('            </property>')
+  lines.push('            <property type="activation-mode">')
+  lines.push('                <name>activation-mode</name>')
+  lines.push('                <value>disallowed</value>')
   lines.push('            </property>')
   lines.push('        </action>')
   return lines.join('\n')
