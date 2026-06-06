@@ -17,8 +17,15 @@ function mapAxisButtonDirection(dir: string): string {
   return map[dir] || dir
 }
 
-function stripBraces(guid: string): string {
-  return guid.replace(/^\{/, '').replace(/\}$/, '')
+function normalizeDeviceId(guid: string): string {
+  // R14 expects device GUIDs brace-stripped AND lower-cased:
+  // "{7D12D5C0-...}" -> "7d12d5c0-...". R13 stores them brace-wrapped and
+  // upper-case; leaving the original case makes R14 fail to match the device,
+  // which silently unbinds every input on it.
+  return guid
+    .replace(/^\{/, '')
+    .replace(/\}$/, '')
+    .toLowerCase()
 }
 
 interface LibraryEntry {
@@ -43,6 +50,11 @@ interface InputEntry {
   actionConfigs: ActionConfig[]
 }
 
+interface ChildAction {
+  id: string
+  isCurve: boolean
+}
+
 export function generateR14(profile: R13Profile): ConversionResult {
   const warnings: string[] = []
   const libraryEntries: LibraryEntry[] = []
@@ -54,7 +66,7 @@ export function generateR14(profile: R13Profile): ConversionResult {
   // Collect modes and devices
   for (const device of profile.devices) {
     if (device.type !== 'keyboard') {
-      deviceSet.set(stripBraces(device.deviceGuid), device.name)
+      deviceSet.set(normalizeDeviceId(device.deviceGuid), device.name)
     }
     for (const mode of device.modes) {
       if (!modes.has(mode.name)) {
@@ -90,7 +102,7 @@ export function generateR14(profile: R13Profile): ConversionResult {
   const deviceSummaries: DeviceSummary[] = []
   for (const device of profile.devices) {
     if (device.type === 'keyboard') continue
-    const guid = stripBraces(device.deviceGuid)
+    const guid = normalizeDeviceId(device.deviceGuid)
     const modeSummaries = device.modes
       .map((mode) => {
         const modeInputs = inputs.filter((i) => i.deviceGuid === guid && i.mode === mode.name)
@@ -140,6 +152,126 @@ ${childIdsXml}
   return rootId
 }
 
+// Tempo: tap fires the short bucket, hold (past `threshold` seconds) fires the
+// long bucket. Children of each bucket are already in the library; this pushes
+// the tempo wrapper that references them and returns its id.
+function buildTempoAction(
+  entries: LibraryEntry[],
+  shortIds: string[],
+  longIds: string[],
+  threshold: number,
+  activateOn: string
+): string {
+  const id = uuid()
+  const shortXml = shortIds.map((i) => `                <action-id>${i}</action-id>`).join('\n')
+  const longXml = longIds.map((i) => `                <action-id>${i}</action-id>`).join('\n')
+  entries.push({
+    xml: `        <action id="${id}" type="tempo">
+            <short-actions>
+${shortXml}
+            </short-actions>
+            <long-actions>
+${longXml}
+            </long-actions>
+            <property type="float">
+                <name>threshold</name>
+                <value>${threshold}</value>
+            </property>
+            <property type="string">
+                <name>activate-on</name>
+                <value>${esc(activateOn)}</value>
+            </property>
+            <property type="string">
+                <name>action-label</name>
+                <value>Tempo</value>
+            </property>
+            <property type="activation-mode">
+                <name>activation-mode</name>
+                <value>disallowed</value>
+            </property>
+        </action>`,
+  })
+  return id
+}
+
+// Double-tap: a single tap fires the single bucket, a second tap within
+// `threshold` seconds fires the double bucket. Note the R14 element is
+// <double-tap> (hyphen) and its buckets are <single-actions>/<double-actions>,
+// unlike tempo's <short-actions>/<long-actions>.
+function buildDoubleTapAction(
+  entries: LibraryEntry[],
+  singleIds: string[],
+  doubleIds: string[],
+  threshold: number,
+  activateOn: string
+): string {
+  const id = uuid()
+  const singleXml = singleIds.map((i) => `                <action-id>${i}</action-id>`).join('\n')
+  const doubleXml = doubleIds.map((i) => `                <action-id>${i}</action-id>`).join('\n')
+  entries.push({
+    xml: `        <action id="${id}" type="double-tap">
+            <single-actions>
+${singleXml}
+            </single-actions>
+            <double-actions>
+${doubleXml}
+            </double-actions>
+            <property type="float">
+                <name>threshold</name>
+                <value>${threshold}</value>
+            </property>
+            <property type="string">
+                <name>activate-on</name>
+                <value>${esc(activateOn)}</value>
+            </property>
+            <property type="string">
+                <name>action-label</name>
+                <value>Double Tap</value>
+            </property>
+            <property type="activation-mode">
+                <name>activation-mode</name>
+                <value>disallowed</value>
+            </property>
+        </action>`,
+  })
+  return id
+}
+
+// R14 evaluates a root's <actions> children top-down, so a response-curve must
+// precede the map-to-vjoy/map-to-mouse that reads the shaped axis — otherwise
+// the curve silently no-ops. R13 commonly stored the curve AFTER the remap;
+// reorder curves to the front (stable within each group).
+function orderResponseCurvesFirst(children: ChildAction[]): string[] {
+  const curves = children.filter((c) => c.isCurve).map((c) => c.id)
+  const rest = children.filter((c) => !c.isCurve).map((c) => c.id)
+  return [...curves, ...rest]
+}
+
+// Convert every action in one R13 action-set to R14 library entries (appended
+// to `entries` in order) and return their ids tagged with whether each is a
+// response-curve, so callers can keep curves first.
+function convertActions(
+  actions: R13Action[],
+  input: R13Input,
+  device: R13Device,
+  modeName: string,
+  warnings: string[],
+  entries: LibraryEntry[]
+): { children: ChildAction[]; skipped: number } {
+  const children: ChildAction[] = []
+  let skipped = 0
+  for (const action of actions) {
+    const result = convertAction(action, input, device, modeName, warnings)
+    if (result) {
+      entries.push({ xml: result.xml })
+      children.push({ id: result.id, isCurve: action.type === 'response-curve' })
+    } else {
+      skipped++
+    }
+  }
+  return { children, skipped }
+}
+
 function convertInput(
   input: R13Input,
   device: R13Device,
@@ -151,26 +283,20 @@ function convertInput(
   let skipped = 0
 
   // Separate containers: regular ones vs virtual-button ones
-  const regularChildIds: string[] = []
+  const regularChildren: ChildAction[] = []
 
   for (const container of input.containers) {
     if (container.virtualButton) {
       // Each virtual-button container becomes its own action-configuration
-      const vbChildIds: string[] = []
+      const vbChildren: ChildAction[] = []
       for (const actionSet of container.actionSets) {
-        for (const action of actionSet.actions) {
-          const result = convertAction(action, input, device, modeName, warnings)
-          if (result) {
-            entries.push({ xml: result.xml })
-            vbChildIds.push(result.id)
-          } else {
-            skipped++
-          }
-        }
+        const r = convertActions(actionSet.actions, input, device, modeName, warnings, entries)
+        vbChildren.push(...r.children)
+        skipped += r.skipped
       }
 
-      if (vbChildIds.length > 0) {
-        const rootId = createRootAction(entries, vbChildIds)
+      if (vbChildren.length > 0) {
+        const rootId = createRootAction(entries, orderResponseCurvesFirst(vbChildren))
         actionConfigs.push({
           rootActionId: rootId,
           behavior: 'button',
@@ -181,25 +307,51 @@ function convertInput(
           },
         })
       }
+    } else if (container.type === 'tempo' || container.type === 'double_tap') {
+      // Nested container: action-set[0] is the short/single bucket, [1] the
+      // long/double bucket. Leaf actions are emitted first, then the
+      // tempo/double-tap wrapper that references them, then (later) the root
+      // referencing the wrapper — children-before-referrer order is preserved.
+      const first = convertActions(
+        container.actionSets[0]?.actions ?? [],
+        input,
+        device,
+        modeName,
+        warnings,
+        entries
+      )
+      const second = convertActions(
+        container.actionSets[1]?.actions ?? [],
+        input,
+        device,
+        modeName,
+        warnings,
+        entries
+      )
+      skipped += first.skipped + second.skipped
+      const firstIds = orderResponseCurvesFirst(first.children)
+      const secondIds = orderResponseCurvesFirst(second.children)
+
+      if (firstIds.length > 0 || secondIds.length > 0) {
+        const wrapperId =
+          container.type === 'tempo'
+            ? buildTempoAction(entries, firstIds, secondIds, container.delay ?? 0.5, container.activateOn ?? 'press')
+            : buildDoubleTapAction(entries, firstIds, secondIds, container.delay ?? 0.5, container.activateOn ?? 'exclusive')
+        regularChildren.push({ id: wrapperId, isCurve: false })
+      }
     } else {
-      // Regular container — collect actions for a single action-configuration
+      // Basic container — collect actions for a single action-configuration
       for (const actionSet of container.actionSets) {
-        for (const action of actionSet.actions) {
-          const result = convertAction(action, input, device, modeName, warnings)
-          if (result) {
-            entries.push({ xml: result.xml })
-            regularChildIds.push(result.id)
-          } else {
-            skipped++
-          }
-        }
+        const r = convertActions(actionSet.actions, input, device, modeName, warnings, entries)
+        regularChildren.push(...r.children)
+        skipped += r.skipped
       }
     }
   }
 
   // Create action-configuration for regular (non-virtual-button) actions
-  if (regularChildIds.length > 0) {
-    const rootId = createRootAction(entries, regularChildIds)
+  if (regularChildren.length > 0) {
+    const rootId = createRootAction(entries, orderResponseCurvesFirst(regularChildren))
     actionConfigs.push({
       rootActionId: rootId,
       behavior: input.type,
@@ -213,7 +365,7 @@ function convertInput(
   return {
     libraryEntries: entries,
     inputEntry: {
-      deviceGuid: stripBraces(device.deviceGuid),
+      deviceGuid: normalizeDeviceId(device.deviceGuid),
       inputType: input.type,
       inputId: input.id,
       mode: modeName,
@@ -281,6 +433,28 @@ function convertAction(
 
     case 'map-to-mouse':
       return { id, xml: buildMapToMouseAction(id, action) }
+
+    case 'switch-mode':
+      return { id, xml: buildChangeModeAction(id, 'Switch', [action.modeName]) }
+
+    case 'previous-mode':
+      // "Previous" swaps the top two modes on the stack and takes NO target-mode.
+      return { id, xml: buildChangeModeAction(id, 'Previous', []) }
+
+    case 'map-to-keyboard':
+      return { id, xml: buildMapToKeyboardAction(id, action.keys) }
+
+    case 'play-sound':
+      return { id, xml: buildPlaySoundAction(id, action.file, action.volume) }
+
+    case 'noop': {
+      // R14 removed the noop plugin; its closest match is a description action —
+      // a visible placeholder with no runtime effect. Carry the input's R13
+      // description (often the author's note for why the slot is deliberate).
+      const note = "Incompatible action 'noop' converted to description"
+      const text = input.description ? `${input.description} - ${note}` : note
+      return { id, xml: buildDescriptionAction(id, text) }
+    }
 
     case 'text-to-speech':
       warnings.push(
@@ -442,6 +616,44 @@ function buildMacroAction(
       lines.push(`                    <value>${ma.duration}</value>`)
       lines.push('                </property>')
       lines.push('            </macro-action>')
+    } else if (ma.type === 'vjoy') {
+      // Property order matches JG's VJoyAction.to_xml: vjoy-id, input-type,
+      // input-id, value, then axis-mode for axis. value typing depends on
+      // input-type (bool button / float axis / hat-direction hat).
+      lines.push('            <macro-action type="vjoy">')
+      lines.push('                <property type="int">')
+      lines.push('                    <name>vjoy-id</name>')
+      lines.push(`                    <value>${ma.vjoyId}</value>`)
+      lines.push('                </property>')
+      lines.push('                <property type="input_type">')
+      lines.push('                    <name>input-type</name>')
+      lines.push(`                    <value>${ma.inputType}</value>`)
+      lines.push('                </property>')
+      lines.push('                <property type="int">')
+      lines.push('                    <name>input-id</name>')
+      lines.push(`                    <value>${ma.inputId}</value>`)
+      lines.push('                </property>')
+      if (ma.inputType === 'axis') {
+        lines.push('                <property type="float">')
+        lines.push('                    <name>value</name>')
+        lines.push(`                    <value>${ma.value || '0.0'}</value>`)
+        lines.push('                </property>')
+        lines.push('                <property type="axis_mode">')
+        lines.push('                    <name>axis-mode</name>')
+        lines.push('                    <value>Absolute</value>')
+        lines.push('                </property>')
+      } else if (ma.inputType === 'hat') {
+        lines.push('                <property type="hat_direction">')
+        lines.push('                    <name>value</name>')
+        lines.push(`                    <value>${ma.value || '(0,0)'}</value>`)
+        lines.push('                </property>')
+      } else {
+        lines.push('                <property type="bool">')
+        lines.push('                    <name>value</name>')
+        lines.push(`                    <value>${ma.value === 'True' ? 'True' : 'False'}</value>`)
+        lines.push('                </property>')
+      }
+      lines.push('            </macro-action>')
     }
   }
 
@@ -552,6 +764,78 @@ function buildMapToMouseAction(
   lines.push('            <property type="activation-mode">')
   lines.push('                <name>activation-mode</name>')
   lines.push('                <value>both</value>')
+  lines.push('            </property>')
+  lines.push('        </action>')
+  return lines.join('\n')
+}
+
+function buildMapToKeyboardAction(
+  id: string,
+  keys: { scanCode: number; extended: boolean }[]
+): string {
+  const lines: string[] = []
+  lines.push(`        <action id="${id}" type="map-to-keyboard">`)
+  for (const key of keys) {
+    lines.push('            <input>')
+    lines.push('                <property type="int">')
+    lines.push('                    <name>scan-code</name>')
+    lines.push(`                    <value>${key.scanCode}</value>`)
+    lines.push('                </property>')
+    lines.push('                <property type="bool">')
+    lines.push('                    <name>is-extended</name>')
+    lines.push(`                    <value>${key.extended ? 'True' : 'False'}</value>`)
+    lines.push('                </property>')
+    lines.push('            </input>')
+  }
+  lines.push('            <property type="string">')
+  lines.push('                <name>action-label</name>')
+  lines.push('                <value>Map to Keyboard</value>')
+  lines.push('            </property>')
+  lines.push('            <property type="activation-mode">')
+  lines.push('                <name>activation-mode</name>')
+  lines.push('                <value>both</value>')
+  lines.push('            </property>')
+  lines.push('        </action>')
+  return lines.join('\n')
+}
+
+function buildPlaySoundAction(id: string, file: string, volume: number): string {
+  const lines: string[] = []
+  lines.push(`        <action id="${id}" type="play-sound">`)
+  lines.push('            <property type="string">')
+  lines.push('                <name>filename</name>')
+  lines.push(`                <value>${esc(file)}</value>`)
+  lines.push('            </property>')
+  lines.push('            <property type="int">')
+  lines.push('                <name>volume</name>')
+  lines.push(`                <value>${volume}</value>`)
+  lines.push('            </property>')
+  lines.push('            <property type="string">')
+  lines.push('                <name>action-label</name>')
+  lines.push('                <value>Play Sound</value>')
+  lines.push('            </property>')
+  lines.push('            <property type="activation-mode">')
+  lines.push('                <name>activation-mode</name>')
+  lines.push('                <value>both</value>')
+  lines.push('            </property>')
+  lines.push('        </action>')
+  return lines.join('\n')
+}
+
+function buildDescriptionAction(id: string, text: string): string {
+  const lines: string[] = []
+  lines.push(`        <action id="${id}" type="description">`)
+  lines.push('            <property type="string">')
+  lines.push('                <name>description</name>')
+  lines.push(`                <value>${esc(text)}</value>`)
+  lines.push('            </property>')
+  lines.push('            <property type="string">')
+  lines.push('                <name>action-label</name>')
+  lines.push('                <value>Description</value>')
+  lines.push('            </property>')
+  lines.push('            <property type="activation-mode">')
+  lines.push('                <name>activation-mode</name>')
+  lines.push('                <value>disallowed</value>')
   lines.push('            </property>')
   lines.push('        </action>')
   return lines.join('\n')

@@ -85,7 +85,7 @@ function parseContainers(inputEl: Element): R13Container[] {
       }
 
       const container: R13Container = {
-        type: (containerEl.getAttribute('type') || 'basic') as 'basic' | 'tempo',
+        type: (containerEl.getAttribute('type') || 'basic') as 'basic' | 'tempo' | 'double_tap',
         actionSets,
       }
 
@@ -159,6 +159,23 @@ function parseAction(el: Element): R13Action | null {
         type: 'text-to-speech',
         text: el.getAttribute('text') || '',
       }
+    case 'switch-mode':
+      return {
+        type: 'switch-mode',
+        modeName: el.getAttribute('name') || '',
+      }
+    case 'previous-mode':
+      return { type: 'previous-mode' }
+    case 'map-to-keyboard':
+      return parseMapToKeyboard(el)
+    case 'play-sound':
+      return {
+        type: 'play-sound',
+        file: el.getAttribute('file') || '',
+        volume: parseInt(el.getAttribute('volume') || '100'),
+      }
+    case 'noop':
+      return { type: 'noop' }
     default:
       return {
         type: 'unknown',
@@ -219,11 +236,29 @@ function parseMacro(el: Element): R13Action {
           type: 'pause',
           duration: parseFloat(child.getAttribute('duration') || '0'),
         })
+      } else if (tag === 'vjoy') {
+        macroActions.push({
+          type: 'vjoy',
+          vjoyId: parseInt(child.getAttribute('vjoy-id') || '1'),
+          inputType: child.getAttribute('input-type') || 'button',
+          inputId: parseInt(child.getAttribute('input-id') || '0'),
+          value: child.getAttribute('value') || 'False',
+        })
       }
     }
   }
 
   return { type: 'macro', actions: macroActions }
+}
+
+function parseMapToKeyboard(el: Element): R13Action {
+  return {
+    type: 'map-to-keyboard',
+    keys: Array.from(el.querySelectorAll(':scope > key')).map((k) => ({
+      scanCode: parseInt(k.getAttribute('scan-code') || '0'),
+      extended: k.getAttribute('extended') === 'True',
+    })),
+  }
 }
 
 function parseResponseCurve(el: Element): R13Action {

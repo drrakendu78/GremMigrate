@@ -33,7 +33,7 @@ export interface R13Input {
 }
 
 export interface R13Container {
-  type: 'basic' | 'tempo'
+  type: 'basic' | 'tempo' | 'double_tap'
   activateOn?: string
   delay?: number
   actionSets: R13ActionSet[]
@@ -49,10 +49,15 @@ export type R13Action =
   | R13RemapAxis
   | R13RemapHat
   | R13TemporaryModeSwitch
+  | R13SwitchMode
+  | R13PreviousMode
   | R13CycleModes
   | R13Macro
   | R13ResponseCurve
   | R13MapToMouse
+  | R13MapToKeyboard
+  | R13PlaySound
+  | R13Noop
   | R13TextToSpeech
   | R13UnknownAction
 
@@ -94,6 +99,7 @@ export interface R13Macro {
 export type R13MacroAction =
   | { type: 'key'; scanCode: number; press: boolean; extended: boolean }
   | { type: 'pause'; duration: number }
+  | { type: 'vjoy'; vjoyId: number; inputType: string; inputId: number; value: string }
 
 export interface R13ResponseCurve {
   type: 'response-curve'
@@ -115,6 +121,30 @@ export interface R13MapToMouse {
   maxSpeed: number
   motionInput: boolean
   timeToMaxSpeed: number
+}
+
+export interface R13SwitchMode {
+  type: 'switch-mode'
+  modeName: string
+}
+
+export interface R13PreviousMode {
+  type: 'previous-mode'
+}
+
+export interface R13MapToKeyboard {
+  type: 'map-to-keyboard'
+  keys: { scanCode: number; extended: boolean }[]
+}
+
+export interface R13PlaySound {
+  type: 'play-sound'
+  file: string
+  volume: number
+}
+
+export interface R13Noop {
+  type: 'noop'
 }
 
 export interface R13TextToSpeech {
