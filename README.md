@@ -27,7 +27,7 @@
 ## Features
 
 - **Drag & Drop Conversion** — Drop your R13 `.xml` profile and get a R14 profile instantly.
-- **Full Action Support** — Remaps, macros, response curves, mode switches, virtual buttons, map-to-mouse — all converted automatically.
+- **Full Action Support** — Remaps, macros, response curves, mode switches, tempo & double-tap containers, map-to-mouse/keyboard, play-sound, virtual buttons — all converted automatically.
 - **Detailed Summary** — Devices, modes, inputs, and actions count with per-device collapsible breakdown.
 - **Copy or Download** — Download the converted profile or copy the XML to clipboard.
 - **Clear Warnings** — Any skipped or unsupported actions are flagged with explanations.
@@ -42,11 +42,18 @@
 | Axis remap (vJoy) | ✅ |
 | Hat remap (vJoy) | ✅ |
 | Response curve (deadzone + control points) | ✅ |
-| Macro (key sequences + pauses) | ✅ |
+| Macro (keys, pauses + vJoy taps) | ✅ |
 | Temporary mode switch | ✅ |
+| Switch to specific mode | ✅ |
+| Previous mode | ✅ |
 | Cycle modes | ✅ |
 | Map to mouse | ✅ |
+| Map to keyboard | ✅ |
+| Play sound | ✅ |
 | Virtual buttons (axis-to-button) | ✅ |
+| Tempo container (tap / hold) | ✅ |
+| Double-tap container (single / double) | ✅ |
+| No-op (→ description placeholder) | ✅ |
 | Text-to-Speech | ⚠️ Skipped* |
 
 > \*Text-to-Speech actions were removed in Joystick Gremlin R14 and have no equivalent. They are skipped with a warning.
