@@ -457,10 +457,7 @@ function convertAction(
     }
 
     case 'text-to-speech':
-      warnings.push(
-        `TTS "${action.text}" on ${loc} — Text-to-Speech has been removed in R14 with no equivalent yet.`
-      )
-      return null
+      return { id, xml: buildTextToSpeechAction(id, action.text) }
 
     case 'unknown':
       warnings.push(`Unsupported action <${action.tagName}> on ${loc} — skipped`)
@@ -817,6 +814,45 @@ function buildPlaySoundAction(id: string, file: string, volume: number): string 
   lines.push('            <property type="activation-mode">')
   lines.push('                <name>activation-mode</name>')
   lines.push('                <value>both</value>')
+  lines.push('            </property>')
+  lines.push('        </action>')
+  return lines.join('\n')
+}
+
+function buildTextToSpeechAction(id: string, text: string): string {
+  // R13 only carries the spoken text; the R14.3 action adds queue/playback
+  // properties, so emit Joystick Gremlin's defaults for those. activation-mode
+  // is "press" (not "both") so the line is spoken once per press rather than
+  // again on release.
+  const lines: string[] = []
+  lines.push(`        <action id="${id}" type="text-to-speech">`)
+  lines.push('            <property type="string">')
+  lines.push('                <name>text</name>')
+  lines.push(`                <value>${esc(text)}</value>`)
+  lines.push('            </property>')
+  lines.push('            <property type="string">')
+  lines.push('                <name>queue-mode</name>')
+  lines.push('                <value>queue-back</value>')
+  lines.push('            </property>')
+  lines.push('            <property type="float">')
+  lines.push('                <name>playback-rate</name>')
+  lines.push('                <value>0.0</value>')
+  lines.push('            </property>')
+  lines.push('            <property type="float">')
+  lines.push('                <name>playback-volume</name>')
+  lines.push('                <value>1.0</value>')
+  lines.push('            </property>')
+  lines.push('            <property type="float">')
+  lines.push('                <name>playback-pitch</name>')
+  lines.push('                <value>0.0</value>')
+  lines.push('            </property>')
+  lines.push('            <property type="string">')
+  lines.push('                <name>action-label</name>')
+  lines.push('                <value>Text to Speech</value>')
+  lines.push('            </property>')
+  lines.push('            <property type="activation-mode">')
+  lines.push('                <name>activation-mode</name>')
+  lines.push('                <value>press</value>')
   lines.push('            </property>')
   lines.push('        </action>')
   return lines.join('\n')

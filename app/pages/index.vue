@@ -75,17 +75,6 @@ const fileInput = ref<HTMLInputElement | null>(null)
             <p class="text-zinc-600 text-xs mt-4">{{ t('dropAccepts') }}</p>
           </div>
           <input ref="fileInput" type="file" accept=".xml" class="hidden" @change="onFileInput">
-
-          <!-- TTS note -->
-          <div class="mt-5 rounded-xl p-4 flex items-start gap-3 bg-blue-500/[0.05] border border-blue-500/[0.12]">
-            <svg class="w-5 h-5 text-blue-400 shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-            </svg>
-            <div>
-              <p class="text-blue-300/90 text-sm font-semibold mb-1">{{ t('noteTitle') }}</p>
-              <p class="text-zinc-400 text-xs leading-relaxed">{{ t('noteText') }} <span class="text-blue-300/70 font-medium">{{ t('noteSkipped') }}</span> {{ t('noteSuffix') }}</p>
-            </div>
-          </div>
         </div>
 
         <!-- Processing state -->
