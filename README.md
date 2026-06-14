@@ -54,9 +54,7 @@
 | Tempo container (tap / hold) | ✅ |
 | Double-tap container (single / double) | ✅ |
 | No-op (→ description placeholder) | ✅ |
-| Text-to-Speech | ⚠️ Skipped* |
-
-> \*Text-to-Speech actions were removed in Joystick Gremlin R14 and have no equivalent. They are skipped with a warning.
+| Text-to-Speech | ✅ |
 
 ## Quick Start
 
